@@ -1,0 +1,19 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "temis-tools",
+  "description": "Tools and agent documentation shared with the team: pick the ones you want, skip the rest",
+  "owner": {
+    "name": "Felipe Carvalho Costa",
+    "url": "https://github.com/felipethecosta"
+  },
+  "plugins": [
+    {
+      "name": "docshot",
+      "description": "Turn a running web application into an operation manual: screenshots driven by configuration, and .docx generated inside your own corporate template",
+      "source": "./plugins/docshot",
+      "version": "0.2.0",
+      "category": "documentation",
+      "tags": ["documentation", "playwright", "screenshots", "docx", "manuals"]
+    }
+  ]
+}

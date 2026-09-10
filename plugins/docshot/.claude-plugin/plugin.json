@@ -1,0 +1,11 @@
+{
+  "name": "docshot",
+  "description": "Capture the screens, build the manual — a screenshot runner driven by configuration and a .docx generator that reuses your corporate template",
+  "version": "0.2.0",
+  "author": {
+    "name": "Felipe Carvalho Costa",
+    "url": "https://github.com/felipethecosta"
+  },
+  "homepage": "https://github.com/felipethecosta/docshot",
+  "keywords": ["documentation", "manuals", "docx", "playwright", "screenshots"]
+}
