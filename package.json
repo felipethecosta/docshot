@@ -1,0 +1,14 @@
+{
+  "name": "docshot",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Capture the screens, build the manual: config-driven screenshots and .docx generation in a corporate template.",
+  "type": "module",
+  "bin": { "docshot": "bin/docshot" },
+  "scripts": {
+    "capture": "node capture/capture.mjs",
+    "postinstall": "playwright install chromium --with-deps || playwright install chromium"
+  },
+  "engines": { "node": ">=18" },
+  "dependencies": { "playwright": "^1.49.0" }
+}

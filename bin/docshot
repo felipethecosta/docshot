@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# docshot — capture the screens, build the manual.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+COMMAND="${1:-help}"
+
+case "$COMMAND" in
+  capture)
+    shift
+    exec node "$ROOT/capture/capture.mjs" "$@"
+    ;;
+  build | inspect | init)
+    exec env PYTHONPATH="$ROOT${PYTHONPATH:+:$PYTHONPATH}" python3 -m docshot "$@"
+    ;;
+  all)
+    shift
+    node "$ROOT/capture/capture.mjs" "$@"
+    exec env PYTHONPATH="$ROOT${PYTHONPATH:+:$PYTHONPATH}" python3 -m docshot build
+    ;;
+  -h | --help | help)
+    cat <<'USAGE'
+docshot — capture the screens, build the manual.
+
+  docshot init [dir]            scaffold docshot.config.json, source/, shots/
+  docshot capture [--only a,b]  take the screenshots described in the config
+                                [--headed] [--list] [--config path]
+  docshot build [slug...]       build one .docx per source
+                                [--single] [--template path] [--out dir]
+  docshot inspect               report what the .docx template offers
+  docshot all                   capture, then build
+
+Configuration lives in docshot.config.json; credentials come from the
+environment (or a .env beside the config) via ${VAR} references.
+USAGE
+    ;;
+  *)
+    echo "docshot: unknown command '$COMMAND' (try: docshot help)" >&2
+    exit 1
+    ;;
+esac
