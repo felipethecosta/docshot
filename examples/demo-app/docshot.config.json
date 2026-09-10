@@ -15,8 +15,15 @@
   },
   "consolidated": {
     "output": "Manual.docx",
-    "appendIncludes": ["tecnico"],
-    "rewrites": [["Este manual aplica-se", "Este capítulo aplica-se"]],
+    "appendIncludes": [
+      "tecnico"
+    ],
+    "rewrites": [
+      [
+        "Este manual aplica-se",
+        "Este capítulo aplica-se"
+      ]
+    ],
     "document": {
       "titulo": "Demo App",
       "subtitulo": "Manual de Operação"
@@ -25,40 +32,76 @@
   "capture": {
     "baseUrl": "http://localhost:3000",
     "outDir": "shots",
-    "viewport": { "width": 1440, "height": 900 },
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
     "deviceScaleFactor": 2,
     "settleMs": 3000,
-    "mask": ["[data-pii]"],
+    "mask": [
+      "[data-pii]"
+    ],
     "auth": {
       "url": "/login",
       "fields": {
         "#signin-email": "${APP_USER}",
         "#signin-password": "${APP_PASSWORD}"
       },
-      "submit": { "role": "button", "name": "entrar|sign in" },
-      "waitForUrl": "/(?!login)"
+      "submit": {
+        "role": "button",
+        "name": "entrar|sign in"
+      },
+      "waitForUrl": "localhost:3000/(?!login)"
     },
     "shots": [
-      { "name": "inicio-01-visao-geral", "goto": "/", "settleMs": 4500 },
-
-      { "name": "clientes-01-lista", "goto": "/customers" },
+      {
+        "name": "inicio-01-visao-geral",
+        "goto": "/",
+        "settleMs": 4500
+      },
+      {
+        "name": "clientes-01-lista",
+        "goto": "/customers"
+      },
       {
         "name": "clientes-02-cadastro",
         "goto": "/customers",
-        "steps": [{ "click": { "role": "button", "name": "novo cliente" } }]
+        "steps": [
+          {
+            "click": {
+              "role": "button",
+              "name": "novo cliente"
+            }
+          }
+        ]
       },
       {
         "name": "clientes-03-detalhe",
         "goto": "/customers",
-        "steps": [{ "click": { "role": "tab", "name": "histórico" } }]
+        "steps": [
+          {
+            "click": {
+              "role": "tab",
+              "name": "histórico"
+            }
+          }
+        ]
       },
       {
         "name": "clientes-04-acoes-da-linha",
         "goto": "/customers",
-        "steps": [{ "menu": { "selector": "button[aria-haspopup=\"menu\"]" } }]
+        "steps": [
+          {
+            "menu": {
+              "selector": "button[aria-haspopup=\"menu\"]"
+            }
+          }
+        ]
       },
-
-      { "name": "pedidos-01-lista", "goto": "/orders" },
+      {
+        "name": "pedidos-01-lista",
+        "goto": "/orders"
+      },
       {
         "name": "pedidos-02-dia-com-movimento",
         "goto": "/orders",
@@ -67,17 +110,32 @@
           {
             "repeatUntilGone": {
               "text": "nenhum pedido neste dia",
-              "click": { "role": "button", "name": "^próximo$" },
+              "click": {
+                "role": "button",
+                "name": "^próximo$"
+              },
               "max": 12
             }
           }
         ]
       },
-
-      { "name": "faturas-01-lista", "goto": "/invoices", "settleMs": 4000 },
-      { "name": "relatorios-01-visao", "goto": "/reports" },
-      { "name": "admin-01-usuarios", "goto": "/admin/users" },
-      { "name": "admin-02-papeis", "goto": "/admin/roles" }
+      {
+        "name": "faturas-01-lista",
+        "goto": "/invoices",
+        "settleMs": 4000
+      },
+      {
+        "name": "relatorios-01-visao",
+        "goto": "/reports"
+      },
+      {
+        "name": "admin-01-usuarios",
+        "goto": "/admin/users"
+      },
+      {
+        "name": "admin-02-papeis",
+        "goto": "/admin/roles"
+      }
     ]
   }
 }

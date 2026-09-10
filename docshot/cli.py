@@ -4,7 +4,7 @@ import argparse
 import os
 import sys
 
-from . import builder, config as config_module, plain_template, template
+from . import builder, config as config_module, lint, plain_template, template
 
 STARTER_CONFIG = """{
   "template": "template/base.docx",
@@ -97,6 +97,13 @@ def cmd_inspect(args) -> int:
     return 0
 
 
+def cmd_check(args) -> int:
+    path = args.config or config_module.find()
+    config = config_module.load(path)
+    print(path)
+    return lint.report(lint.check(config))
+
+
 def cmd_init(args) -> int:
     root = os.path.abspath(args.directory)
     name = args.name or os.path.basename(root)
@@ -137,6 +144,10 @@ def main(argv=None) -> int:
     inspect.add_argument("--config", help="path to docshot.config.json")
     inspect.add_argument("--template", help="override the .docx template")
     inspect.set_defaults(func=cmd_inspect)
+
+    check = sub.add_parser("check", help="validate the configuration and the sources")
+    check.add_argument("--config", help="path to docshot.config.json")
+    check.set_defaults(func=cmd_check)
 
     init = sub.add_parser("init", help="scaffold a project in this directory")
     init.add_argument("directory", nargs="?", default=".")

@@ -13,80 +13,18 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 
-const CONFIG_NAME = "docshot.config.json";
+import {
+  fail,
+  launch,
+  login,
+  pick,
+  readConfig,
+  screenSignature,
+  settle,
+  signatureChanged,
+} from "./shared.mjs";
 
-// -- configuration ---------------------------------------------------------
-
-function findConfig(start) {
-  let current = path.resolve(start);
-  for (;;) {
-    const candidate = path.join(current, CONFIG_NAME);
-    if (fs.existsSync(candidate)) return candidate;
-    const parent = path.dirname(current);
-    if (parent === current) {
-      fail(`no ${CONFIG_NAME} found (looked from ${path.resolve(start)} upwards)`);
-    }
-    current = parent;
-  }
-}
-
-/** `KEY=value` lines from a .env next to the config, without overriding the shell. */
-function loadEnvFile(dir) {
-  const file = path.join(dir, ".env");
-  if (!fs.existsSync(file)) return;
-  for (const line of fs.readFileSync(file, "utf8").split("\n")) {
-    const match = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/.exec(line);
-    if (!match || line.trim().startsWith("#")) continue;
-    const value = match[2].replace(/^["']|["']$/g, "");
-    if (process.env[match[1]] === undefined) process.env[match[1]] = value;
-  }
-}
-
-function expand(value) {
-  if (typeof value === "string") {
-    return value.replace(/\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g, (whole, name) => {
-      if (process.env[name] === undefined) {
-        fail(`environment variable ${name} is not set (referenced as ${whole})`);
-      }
-      return process.env[name];
-    });
-  }
-  if (Array.isArray(value)) return value.map(expand);
-  if (value && typeof value === "object") {
-    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, expand(v)]));
-  }
-  return value;
-}
-
-function fail(message) {
-  console.error(`docshot: ${message}`);
-  process.exit(1);
-}
-
-// -- locators --------------------------------------------------------------
-
-/** A step's target: `selector`, or `role` + `name` (name is a regex, case-insensitive). */
-function locate(page, target) {
-  if (typeof target === "string") return page.locator(target);
-  if (target.selector) return page.locator(target.selector);
-  if (target.text) return page.getByText(new RegExp(target.text, "i"));
-  if (target.label) return page.getByLabel(new RegExp(target.label, "i"));
-  if (target.role) {
-    return target.name
-      ? page.getByRole(target.role, { name: new RegExp(target.name, "i") })
-      : page.getByRole(target.role);
-  }
-  fail(`step target needs one of: selector, role, text, label — got ${JSON.stringify(target)}`);
-}
-
-function pick(page, target) {
-  const locator = locate(page, target);
-  return typeof target === "object" && target.nth !== undefined
-    ? locator.nth(target.nth)
-    : locator.first();
-}
-
-// -- runner ----------------------------------------------------------------
+const INTERACTIVE_STEPS = ["click", "menu", "press", "repeatUntilGone"];
 
 class Runner {
   constructor(page, config, outDir) {
@@ -99,8 +37,7 @@ class Runner {
   }
 
   async settle(ms = this.settleMs) {
-    await this.page.waitForLoadState("networkidle").catch(() => {});
-    await this.page.waitForTimeout(ms);
+    await settle(this.page, ms);
   }
 
   async shoot(name, options = {}) {
@@ -114,24 +51,6 @@ class Runner {
     });
     this.taken.push(name);
     console.log(`  ✓ ${name}.png`);
-  }
-
-  async login() {
-    const auth = this.config.auth;
-    if (!auth) return;
-    await this.page.goto(auth.url ?? "/login");
-    await this.settle(auth.settleMs ?? 1500);
-
-    for (const [selector, value] of Object.entries(auth.fields ?? {})) {
-      await this.page.fill(selector, value);
-    }
-    if (auth.submit) await pick(this.page, auth.submit).click();
-    if (auth.waitForUrl) {
-      await this.page.waitForURL(new RegExp(auth.waitForUrl), {
-        timeout: auth.timeoutMs ?? 60_000,
-      });
-    }
-    await this.settle();
   }
 
   async step(step, shotName) {
@@ -224,9 +143,29 @@ class Runner {
       await this.page.goto(shot.goto);
       await this.settle(shot.settleMs);
     }
+
+    // A click that misses its target photographs the screen behind it, and
+    // nobody notices until the document is in review. Compare what is on
+    // screen before and after the interaction and say so.
+    const interactive = (shot.steps ?? []).some((step) =>
+      INTERACTIVE_STEPS.some((key) => key in step),
+    );
+    const before = interactive ? await screenSignature(this.page) : null;
+
     for (const step of shot.steps ?? []) {
       await this.step(step, shot.name);
     }
+
+    if (interactive) {
+      const after = await screenSignature(this.page);
+      if (!signatureChanged(before, after)) {
+        this.warnings.push(
+          `${shot.name}: the screen did not change after the interaction — ` +
+            `the shot may be showing the page behind it`,
+        );
+      }
+    }
+
     if (shot.skipScreenshot) return;
     await this.settle(shot.finalSettleMs ?? 800);
     await this.shoot(shot.name, shot);
@@ -237,8 +176,6 @@ class Runner {
   }
 }
 
-// -- entry point -----------------------------------------------------------
-
 async function main() {
   const args = process.argv.slice(2);
   const flag = (name) => {
@@ -246,63 +183,27 @@ async function main() {
     return index === -1 ? undefined : args[index + 1];
   };
 
-  const configPath = path.resolve(flag("--config") ?? findConfig("."));
-  const root = path.dirname(configPath);
-  loadEnvFile(root);
-
-  const file = JSON.parse(fs.readFileSync(configPath, "utf8"));
-  const config = expand(file.capture ?? file);
-  if (!config.shots?.length) fail(`no "capture.shots" in ${configPath}`);
-
-  const only = flag("--only")?.split(",").map((s) => s.trim());
-  const shots = only ? config.shots.filter((s) => only.includes(s.name)) : config.shots;
-  if (!shots.length) fail(`no shot named ${only?.join(", ")}`);
+  const { root, file, capture: config } = readConfig(flag("--config"));
+  if (!config.shots?.length) fail(`no "capture.shots" in the configuration`);
 
   if (args.includes("--list")) {
     for (const shot of config.shots) console.log(shot.name);
     return 0;
   }
 
+  const only = flag("--only")?.split(",").map((s) => s.trim());
+  const shots = only ? config.shots.filter((s) => only.includes(s.name)) : config.shots;
+  if (!shots.length) fail(`no shot named ${only?.join(", ")}`);
+
   const outDir = path.resolve(root, config.outDir ?? file.shotsDir ?? "shots");
   fs.mkdirSync(outDir, { recursive: true });
 
-  // Either package works: a standalone `playwright`, or the `@playwright/test`
-  // a project already has for its end-to-end suite.
-  let chromium;
-  for (const candidate of ["playwright", "@playwright/test"]) {
-    try {
-      ({ chromium } = await import(candidate));
-      break;
-    } catch {
-      /* try the next one */
-    }
-  }
-  if (!chromium) {
-    fail("playwright is not installed — run: npm install playwright && npx playwright install chromium");
-  }
-
-  const browser = await chromium.launch({
-    headless: !args.includes("--headed"),
-    slowMo: config.slowMo ?? 0,
-    args: config.browserArgs ?? [],
-  });
-  const context = await browser.newContext({
-    baseURL: config.baseUrl,
-    viewport: config.viewport ?? { width: 1440, height: 900 },
-    deviceScaleFactor: config.deviceScaleFactor ?? 2,
-    colorScheme: config.colorScheme ?? "light",
-    locale: config.locale,
-    timezoneId: config.timezone,
-    ignoreHTTPSErrors: config.ignoreHTTPSErrors ?? false,
-  });
-  context.setDefaultTimeout(config.timeoutMs ?? 30_000);
-
-  const page = await context.newPage();
+  const { browser, page } = await launch(config, { headed: args.includes("--headed") });
   const runner = new Runner(page, config, outDir);
   const failures = [];
 
   try {
-    await runner.login();
+    await login(page, config);
     for (const shot of shots) {
       try {
         await runner.capture(shot);

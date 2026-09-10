@@ -31,11 +31,38 @@ mkdir my-manual && cd my-manual
 docshot init                   # docshot.config.json + source/ + shots/ + template/
 cp ~/Downloads/corporate.docx template/base.docx
 docshot inspect                # what the generator found in that template
+docshot probe /customers       # what that screen offers, as steps to paste
+docshot check                  # validate the config and the sources, no browser
 docshot capture                # shots/*.png
 docshot build --single         # build/manual.docx
 ```
 
 `docshot all` runs capture and build in sequence.
+
+## Writing the config without guessing
+
+`docshot probe <route>` logs in, opens the route and prints every button, tab
+and field it finds, each with the JSON step that addresses it:
+
+```
+buttons (37, 28 in the app chrome — --all shows them)
+  New customer                     {"click":{"role":"button","name":"^New customer$"}}
+  (no accessible name)  menu trigger  {"menu":{"selector":"button[aria-haspopup=\"menu\"]"}}
+```
+
+`--after '<step json>'` probes what appears *after* an interaction, which is how
+you list the fields inside a dialog before writing the section that describes
+them.
+
+`docshot check` runs before any browser starts and catches what silently ruins a
+batch: an unknown key, an invalid regex, a `waitForUrl` loose enough to match
+the login page itself, two shots with the same name, an image a manual
+references that no shot produces, a screenshot nobody uses, a literal password
+where a `${VAR}` belongs.
+
+During the run, a shot whose interaction leaves the screen unchanged is
+reported — that is the click that missed its target and photographed the page
+behind it.
 
 ## Configuration
 
@@ -131,17 +158,29 @@ Heading styles are matched by their Word name (`heading 1`, `Título 1`, …), s
 
 Screenshots are scaled to the template's usable text width and never cropped. `"maxImageWidthIn": 6.5` pins them to a narrower column when the document should keep an existing layout.
 
+## For coding agents
+
+`AGENTS.md` at the root is the working contract — the loop, the dialect, the
+configuration reference, and the traps that each cost a review cycle. `CLAUDE.md`
+points at it, and `.claude/skills/write-manual/` carries the procedure for
+turning a running system into a manual. Point whatever assistant you use at
+`AGENTS.md` before it writes configuration or prose.
+
 ## Layout
 
 ```
+AGENTS.md            the contract for coding agents (CLAUDE.md points here)
 bin/docshot          dispatcher
 capture/capture.mjs  the Playwright runner
+capture/probe.mjs    reports what a screen offers
+capture/shared.mjs   config, login and target resolution
 docshot/             the .docx generator (standard library only)
   template.py          reads styles, numbering and sectPr out of the template
   markdown.py          the source dialect
   ooxml.py             paragraph, list, table and image builders
   doc.py               cover page and control tables
   package.py           clones the template package, swaps the body
+  lint.py              the static checks behind `docshot check`
 examples/demo-app/   a project layout to copy, binaries left out
 ```
 

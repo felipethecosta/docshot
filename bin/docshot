@@ -10,7 +10,11 @@ case "$COMMAND" in
     shift
     exec node "$ROOT/capture/capture.mjs" "$@"
     ;;
-  build | inspect | init)
+  probe)
+    shift
+    exec node "$ROOT/capture/probe.mjs" "$@"
+    ;;
+  build | inspect | init | check)
     exec env PYTHONPATH="$ROOT${PYTHONPATH:+:$PYTHONPATH}" python3 -m docshot "$@"
     ;;
   all)
@@ -23,6 +27,9 @@ case "$COMMAND" in
 docshot — capture the screens, build the manual.
 
   docshot init [dir]            scaffold docshot.config.json, source/, shots/
+  docshot check                 validate the config and the sources, no browser
+  docshot probe <route>         list what a screen offers, as steps to paste
+                                [--after '<step json>'] [--json] [--headed]
   docshot capture [--only a,b]  take the screenshots described in the config
                                 [--headed] [--list] [--config path]
   docshot build [slug...]       build one .docx per source

@@ -32,6 +32,10 @@ documento.
 | Documento | Sim | Único por conta |
 | Responsável | Não | Quem atende esse cliente |
 
+# DETALHE DO CLIENTE
+
+![Histórico do cliente](clientes-03-detalhe.png)
+
 # AÇÕES DA LINHA
 
 ![Menu de ações](clientes-04-acoes-da-linha.png)
